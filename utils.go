@@ -3,6 +3,7 @@ package fluentmodel
 import (
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
 	"os"
 	"reflect"
 	"strconv"
@@ -45,6 +46,7 @@ func SetValue(model any, key string, data any) (err error) {
 	field := reflect.Indirect(value).FieldByName(key)
 	var val reflect.Value
 	dataStr := ToString(data)
+	valueData := reflect.ValueOf(data)
 
 	switch field.Kind() {
 	case reflect.String:
@@ -86,6 +88,17 @@ func SetValue(model any, key string, data any) (err error) {
 	case reflect.Float64:
 		floatVar, _ := strconv.ParseFloat(dataStr, 64)
 		val = reflect.ValueOf(floatVar)
+	case reflect.Array:
+		// IsZero panics if the value is invalid.
+		// Most functions and methods never return an invalid Value.
+		isValidValue := valueData.IsValid() && !valueData.IsZero()
+
+		if isValidValue {
+			// Try to cast to a UUID type
+			if u, ok := valueData.Interface().(uuid.UUID); ok {
+				val = reflect.ValueOf(u.String())
+			}
+		}
 	default:
 		err = errors.New("unknown type")
 	}

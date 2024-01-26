@@ -250,7 +250,7 @@ func (db *DBModel) query(q *fluentsql.QueryBuilder, model any) (err error) {
 }
 
 // add performs adding new data by InsertBuilder
-func (db *DBModel) add(q *fluentsql.InsertBuilder, primaryColumn string) (id int64, err error) {
+func (db *DBModel) add(q *fluentsql.InsertBuilder, primaryColumn string) (id any, err error) {
 	var sqlStr string
 	var args []any
 
@@ -264,6 +264,10 @@ func (db *DBModel) add(q *fluentsql.InsertBuilder, primaryColumn string) (id int
 	if fluentsql.DBType() == fluentsql.PostgreSQL {
 		if primaryColumn != "" {
 			sqlStr += " RETURNING " + primaryColumn
+
+			if GetEnv("DB_DEBUG", false) {
+				log.Printf("Chagned SQL> %s", sqlStr)
+			}
 		}
 
 		if db.tx != nil {

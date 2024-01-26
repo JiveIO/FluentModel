@@ -175,7 +175,7 @@ func (db *DBModel) createByStruct(model any) (err error) {
 		Insert(table.Name, columns...).
 		Row(values...)
 
-	var id int64
+	var id any
 	var primaryColumn Column
 
 	// Get primary column name (in case only one primary in table)
