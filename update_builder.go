@@ -57,7 +57,9 @@ import (
 func (db *DBModel) Update(model any) (err error) {
 	typ := reflect.TypeOf(model)
 
-	if typ.Kind() == reflect.Map {
+	if db.raw.sqlStr != "" {
+		err = db.execRaw(db.raw.sqlStr, db.raw.args)
+	} else if typ.Kind() == reflect.Map {
 		err = db.updateByMap(model)
 	} else if typ.Kind() == reflect.Struct ||
 		(typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct) {

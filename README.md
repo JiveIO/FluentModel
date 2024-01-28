@@ -415,3 +415,47 @@ if err != nil {
     log.Fatal(err)
 }
 ```
+
+## RAW SQLs
+
+```go
+// -------- Insert --------
+var user User
+err = db.Raw("INSERT INTO users(name, age) VALUES($1, $2)", "Kite", 43).
+    Create(&user)
+if err != nil {
+    log.Fatal(err)
+}
+log.Printf("User %v\n", user)
+
+// -------- Update --------
+err = db.Raw("UPDATE users SET name = $1, age = $2 WHERE id= $3", "Kite - Tola", 34, 1).
+    Update(&User{})
+if err != nil {
+    log.Fatal(err)
+}
+
+// -------- Get One --------
+var user2 User
+err = db.Raw("SELECT * FROM users WHERE id=$1", 1).
+    First(&user2)
+log.Printf("User %v\n", user2)
+
+// -------- Select --------
+var userList []User
+var total int
+total, err = db.Raw("SELECT * FROM users").
+    Find(&userList)
+log.Printf("Total %v\n", total)
+
+for _, _user := range userList {
+    log.Printf("User %v\n", _user)
+}
+
+// -------- Delete --------
+err = db.Raw("DELETE FROM users WHERE id > $1", 1).
+    Delete(&User{})
+if err != nil {
+    log.Fatal(err)
+}
+```

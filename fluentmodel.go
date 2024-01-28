@@ -216,6 +216,11 @@ func (db *DBModel) get(q *fluentsql.QueryBuilder, model any) (err error) {
 
 	sqlStr, args, _ = q.Sql()
 
+	return db.getRaw(sqlStr, args, model)
+}
+
+// get perform getting single data row by QueryBuilder
+func (db *DBModel) getRaw(sqlStr string, args []any, model any) (err error) {
 	if GetEnv("DB_DEBUG", false) {
 		log.Printf("SQL> %s - args %v", sqlStr, args)
 	}
@@ -236,6 +241,11 @@ func (db *DBModel) query(q *fluentsql.QueryBuilder, model any) (err error) {
 
 	sqlStr, args, _ = q.Sql()
 
+	return db.queryRaw(sqlStr, args, model)
+}
+
+// queryRaw performs query list data row by sqlStr and arguments
+func (db *DBModel) queryRaw(sqlStr string, args []any, model any) (err error) {
 	if GetEnv("DB_DEBUG", false) {
 		log.Printf("SQL> %s - args %v", sqlStr, args)
 	}
@@ -256,6 +266,11 @@ func (db *DBModel) add(q *fluentsql.InsertBuilder, primaryColumn string) (id any
 
 	sqlStr, args, _ = q.Sql()
 
+	return db.addRaw(sqlStr, args, primaryColumn)
+}
+
+// addRaw performs adding new data by sqlStr and arguments
+func (db *DBModel) addRaw(sqlStr string, args []any, primaryColumn string) (id any, err error) {
 	if GetEnv("DB_DEBUG", false) {
 		log.Printf("SQL> %s - args %v", sqlStr, args)
 	}
@@ -296,18 +311,7 @@ func (db *DBModel) update(q *fluentsql.UpdateBuilder) (err error) {
 
 	sqlStr, args, _ = q.Sql()
 
-	if GetEnv("DB_DEBUG", false) {
-		log.Printf("SQL> %s - args %v", sqlStr, args)
-	}
-
-	// Data persistence
-	if db.tx != nil {
-		_, err = db.tx.Exec(sqlStr, args...)
-	} else {
-		_, err = dbInstance.Exec(sqlStr, args...)
-	}
-
-	return
+	return db.execRaw(sqlStr, args)
 }
 
 // delete performs deleting data by DeleteBuilder
@@ -317,6 +321,11 @@ func (db *DBModel) delete(q *fluentsql.DeleteBuilder) (err error) {
 
 	sqlStr, args, _ = q.Sql()
 
+	return db.execRaw(sqlStr, args)
+}
+
+// execRaw performs updating and deleting data by DeleteBuilder
+func (db *DBModel) execRaw(sqlStr string, args []any) (err error) {
 	if GetEnv("DB_DEBUG", false) {
 		log.Printf("SQL> %s - args %v", sqlStr, args)
 	}

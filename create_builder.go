@@ -60,7 +60,9 @@ import (
 func (db *DBModel) Create(model any) (err error) {
 	typ := reflect.TypeOf(model)
 
-	if typ.Kind() == reflect.Map {
+	if db.raw.sqlStr != "" {
+		err = db.createByRaw(model)
+	} else if typ.Kind() == reflect.Map {
 		err = db.createByMap(model)
 	} else if typ.Kind() == reflect.Slice {
 		err = db.createBySlice(model)
@@ -77,6 +79,30 @@ func (db *DBModel) Create(model any) (err error) {
 	db.reset()
 
 	return
+}
+
+func (db *DBModel) createByRaw(model any) (err error) {
+	var table *Table
+
+	// Create a table object from a model
+	table, err = ModelData(model)
+
+	var id any
+	var primaryColumn Column
+
+	// Get primary column name (in case only one primary in table)
+	if len(table.Primaries) == 1 {
+		primaryColumn = table.Primaries[0]
+	}
+
+	id, err = db.addRaw(db.raw.sqlStr, db.raw.args, primaryColumn.Name)
+
+	// Set ID back model
+	if primaryColumn.Key != "" {
+		err = SetValue(model, primaryColumn.Key, id)
+	}
+
+	return err
 }
 
 func (db *DBModel) createByMap(value any) (err error) {

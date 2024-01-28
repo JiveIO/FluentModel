@@ -3,6 +3,7 @@ package fluentmodel
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"github.com/jiveio/fluentsql"
 	"log"
 	"math/big"
@@ -294,6 +295,10 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 		} else {
 			err = dbInstance.Select(model, db.raw.sqlStr, db.raw.args...)
 		}
+
+		// Query COUNT
+		sqlCount := fmt.Sprintf("SELECT COUNT(*) AS total FROM (%s) _result_out_", db.raw.sqlStr)
+		err = db.getRaw(sqlCount, db.raw.args, &total)
 
 		// Reset fluent model builder
 		db.reset()

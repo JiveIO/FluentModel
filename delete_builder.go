@@ -39,6 +39,20 @@ import (
 //		log.Fatal(err)
 //	}
 func (db *DBModel) Delete(model any, args ...any) (err error) {
+	// Delete by raw sql
+	if db.raw.sqlStr != "" {
+		err = db.execRaw(db.raw.sqlStr, db.raw.args)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Reset fluent model builder
+		db.reset()
+
+		return
+	}
+
 	if len(args) > 0 {
 		var opt fluentsql.WhereOpt
 		var argument = args[0]
