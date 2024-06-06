@@ -452,31 +452,18 @@ func (db *DBModel) WhereGroup(groupCondition fluentsql.FnWhereBuilder) *DBModel 
 	return db
 }
 
-// WhenWhere checking TRUE to build Where condition.
-func (db *DBModel) WhenWhere(condition bool, field any, opt fluentsql.WhereOpt, value any) *DBModel {
+// When checking TRUE to build Where condition.
+func (db *DBModel) When(condition bool, groupCondition fluentsql.FnWhereBuilder) *DBModel {
 	if !condition {
 		return db
 	}
 
-	return db.Where(field, opt, value)
-}
+	// Create new WhereBuilder
+	whereBuilder := groupCondition(*fluentsql.WhereInstance())
 
-// WhenWhereOr checking TRUE to build WhereOr condition.
-func (db *DBModel) WhenWhereOr(condition bool, field any, opt fluentsql.WhereOpt, value any) *DBModel {
-	if !condition {
-		return db
-	}
+	db.whereStatement.Conditions = append(db.whereStatement.Conditions, whereBuilder.Conditions()...)
 
-	return db.WhereOr(field, opt, value)
-}
-
-// WhenWhereGroup checking TRUE to build WhereGroup condition.
-func (db *DBModel) WhenWhereGroup(condition bool, groupCondition fluentsql.FnWhereBuilder) *DBModel {
-	if !condition {
-		return db
-	}
-
-	return db.WhereGroup(groupCondition)
+	return db
 }
 
 // Join builder
