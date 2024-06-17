@@ -94,14 +94,22 @@ func processModel(typ reflect.Type, value reflect.Value, tbl *Table) *Table {
 		typeField := typ.Field(i)
 
 		// Get value field
-		valueField := value.Field(i)
+		var valueField reflect.Value
+		// FIX panic: reflect: Field index out of range
+		if value.NumField() == typ.NumField() {
+			valueField = value.Field(i)
+		} else {
+			valueField = reflect.ValueOf(nil)
+		}
 
 		// Extract attributes in model via tab name MODEL
 		attr := readTags(typeField.Tag.Get(MODEL))
 
+		// Check primary column
+		isPrimaryColumn := isPrimary(attr[TYPE])
+
 		// Try to process special column type MetaData for Model
 		if typeField.Type == reflect.TypeOf(MetaData("")) {
-			// Table name
 			if slice, tableOk := attr[TABLE]; tableOk && len(slice) > 0 {
 				tbl.Name = slice[0]
 			}
@@ -113,22 +121,24 @@ func processModel(typ reflect.Type, value reflect.Value, tbl *Table) *Table {
 		if slice, nameOk := attr[NAME]; nameOk && len(slice) > 0 {
 			col.Name = slice[0]
 		} else {
+			// Default name
 			col.Name = toSnakeCase(typeField.Name)
 		}
 		col.Key = typeField.Name
 
+		// CAREFUL! IsZero interprets empty strings and int equal 0 as a zero value.
+		// To check only if the pointers have been initialized, you can check the kind of the field:
+		//if valueField.Kind() == reflect.Pointer {}
+
+		// IsZero panics if the value is invalid.
 		// Most functions and methods never return an invalid Value.
-		validValue := valueField.IsValid()
-		isPrimaryCol := isPrimary(attr[TYPE])
+		validValue := valueField.IsValid() && !valueField.IsZero()
 
-		// Check conditions (Valid value && not Primary) || (Valid value && Primary && Not Error)
-		if validValue && ((isPrimaryCol && !valueField.IsZero()) || !isPrimaryCol) {
-			// Add value of column to map.
-			tbl.Values[col.Name] = valueField.Interface() // Any value type
-			col.HasValue = true
-
-			// Flag table have at least a value
+		// Value of column
+		if validValue {
+			tbl.Values[col.Name] = valueField.Interface()
 			tbl.HasData = true
+			col.HasValue = true
 		} else {
 			tbl.Values[col.Name] = nil
 			col.HasValue = false
@@ -172,7 +182,7 @@ func processModel(typ reflect.Type, value reflect.Value, tbl *Table) *Table {
 		tbl.Columns = append(tbl.Columns, col)
 
 		// Column is a primary key
-		col.Primary = isPrimaryCol
+		col.Primary = isPrimaryColumn
 		if col.Primary {
 			tbl.Primaries = append(tbl.Primaries, col)
 		}
