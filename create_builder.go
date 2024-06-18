@@ -175,7 +175,7 @@ func (db *DBModel) createByStruct(model any) (err error) {
 	// Get columns and values accordingly
 	for _, column := range table.Columns {
 		// Restriction from model declaration
-		if !table.CanColumnBeAddOrUpdate(column) {
+		if !column.isNotData() || column.Primary {
 			continue
 		}
 

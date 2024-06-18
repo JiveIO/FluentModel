@@ -5,7 +5,6 @@ import (
 	"github.com/jiveio/fluentsql"
 	"log"
 	"reflect"
-	"slices"
 )
 
 // Update modify data for table via model type Struct, *Struct
@@ -109,57 +108,14 @@ func (db *DBModel) updateByMap(value any) (err error) {
 // updateByStruct Update data by reflection Struct
 func (db *DBModel) updateByStruct(model any) (err error) {
 	var table *Table
-	var columns []string
-	var values []any
-	var primaryKey any
 	var hasCondition = false
 
 	// Create a table object from a model
 	table, err = ModelData(model)
 
-	// Get a primary key
-	if len(table.Primaries) > 0 {
-		primaryKey = table.Primaries[0].Name
-	}
-
-	// Get columns and values accordingly
-	for _, column := range table.Columns {
-		// Restriction from model declaration
-		if !table.CanColumnBeAddOrUpdate(column) {
-			continue
-		}
-
-		// Restriction from omitted columns
-		if len(db.omitsSelectStatement.Columns) > 0 && slices.Contains(db.omitsSelectStatement.Columns, any(column.Name)) {
-			continue
-		}
-
-		value := table.Values[column.Name]
-
-		// Pair columns and values to insert
-		columns = append(columns, column.Name)
-		values = append(values, value)
-
-		// Create special condition for PRIMARY KEY
-		if column.Name == primaryKey {
-			db.wherePrimaryCondition = fluentsql.Condition{
-				Field: primaryKey,
-				Opt:   fluentsql.Eq,
-				Value: value,
-				AndOr: fluentsql.And,
-			}
-		}
-	}
-
 	// Create update instance
 	updateBuilder := fluentsql.UpdateInstance().
 		Update(table.Name)
-
-	// Build WHERE condition with specific primary value
-	if db.wherePrimaryCondition.Value != nil && primaryKey != nil {
-		updateBuilder.Where(primaryKey, db.wherePrimaryCondition.Opt, db.wherePrimaryCondition.Value)
-		hasCondition = true
-	}
 
 	// Build WHERE condition from a condition list
 	for _, condition := range db.whereStatement.Conditions {
@@ -183,6 +139,18 @@ func (db *DBModel) updateByStruct(model any) (err error) {
 		}
 	}
 
+	// Build WHERE condition with primary column values
+	if !hasCondition {
+		for _, column := range table.Columns {
+			if column.Primary {
+				value := table.Values[column.Name]
+
+				updateBuilder.Where(column.Name, fluentsql.Eq, value)
+				hasCondition = true
+			}
+		}
+	}
+
 	if !hasCondition {
 		err = errors.New("missing WHERE condition for updating operator")
 
@@ -191,7 +159,7 @@ func (db *DBModel) updateByStruct(model any) (err error) {
 
 	// Build Updating fields from model's data
 	for _, column := range table.Columns {
-		if !column.HasValue {
+		if column.isNotData() || column.Primary {
 			continue
 		}
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jiveio/fluentsql"
-	"log"
 	"math/big"
 	"reflect"
 )
@@ -96,37 +95,8 @@ const (
 //	}
 //
 // log.Printf("User %v\n", user7)
-func (db *DBModel) First(model any, args ...any) (err error) {
-	if len(args) > 0 {
-		db.wherePrimaryCondition = fluentsql.Condition{
-			Field: nil,
-			Opt:   fluentsql.Eq,
-			Value: args[0],
-			AndOr: fluentsql.And,
-		}
-	}
-
-	err = db.GetOne(model, GetFirst)
-
-	return
-}
-
-// Take get one record, no specified order
-//
-//	Example
-//
-// -------- Query a Take  --------
-//
-// var user2 User
-// err = db.Take(&user2)
-//
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//
-// log.Printf("User %v\n", user2)
-func (db *DBModel) Take(model any) (err error) {
-	err = db.GetOne(model, TakeOne)
+func (db *DBModel) First(model any) (err error) {
+	err = db.Get(model, GetFirst)
 
 	return
 }
@@ -146,13 +116,42 @@ func (db *DBModel) Take(model any) (err error) {
 //
 // log.Printf("User %v\n", user1)
 func (db *DBModel) Last(model any) (err error) {
-	err = db.GetOne(model, GetLast)
+	err = db.Get(model, GetLast)
 
 	return
 }
 
-// GetOne with specific strategy GetLast | GetFirst | TakeOne
-func (db *DBModel) GetOne(model any, getType GetOne) (err error) {
+// Take get one record, no specified order
+//
+//	Example
+//
+// -------- Query a Take  --------
+//
+// var user2 User
+// err = db.Take(&user2)
+//
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+// log.Printf("User %v\n", user2)
+func (db *DBModel) Take(model any, args ...any) (err error) {
+	if len(args) > 0 {
+		db.wherePrimaryCondition = fluentsql.Condition{
+			Field: nil,
+			Opt:   fluentsql.Eq,
+			Value: args[0],
+			AndOr: fluentsql.And,
+		}
+	}
+
+	err = db.Get(model, TakeOne)
+
+	return
+}
+
+// Get with specific strategy GetLast | GetFirst | TakeOne
+func (db *DBModel) Get(model any, getType GetOne) (err error) {
 	// Query raw SQL
 	if db.raw.sqlStr != "" {
 		// Data persistence
@@ -206,7 +205,8 @@ func (db *DBModel) GetOne(model any, getType GetOne) (err error) {
 
 	// Build WHERE condition with specific primary value
 	if db.wherePrimaryCondition.Value != nil && primaryKey != nil {
-		queryBuilder.Where(primaryKey, db.wherePrimaryCondition.Opt, db.wherePrimaryCondition.Value)
+		db.wherePrimaryCondition.Field = primaryKey
+		queryBuilder.WhereCondition(db.wherePrimaryCondition)
 	}
 
 	// Build WHERE condition from a condition list
@@ -228,21 +228,10 @@ func (db *DBModel) GetOne(model any, getType GetOne) (err error) {
 		}
 	}
 
-	// Build WHERE condition from model's data
-	if table.HasData {
-		for _, column := range table.Columns {
-			if !column.HasValue {
-				continue
-			}
+	// Build WHERE condition from a specific model's data off table.
+	table.whereFromModel(queryBuilder)
 
-			// Append query conditions
-			queryBuilder.Where(column.Name, fluentsql.Eq, table.Values[column.Name])
-		}
-	}
-
-	// Build WHERE condition from a specific model
-	db.whereFromModel(queryBuilder)
-
+	// Order by column
 	orderByField := ""
 	if primaryKey != nil {
 		orderByField = primaryKey.(string)
@@ -250,6 +239,7 @@ func (db *DBModel) GetOne(model any, getType GetOne) (err error) {
 		orderByField = table.Columns[0].Name
 	}
 
+	// Order by direction
 	var orderByDir fluentsql.OrderByDir
 
 	// Get order
@@ -328,6 +318,7 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 		primaryKey = table.Primaries[0].Name
 	}
 
+	// Try to build WHERE for primary column
 	if len(params) > 0 && primaryKey != nil {
 		sliceIds := params[0]
 
@@ -360,15 +351,15 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 		Select(selectColumns...).
 		From(table.Name)
 
+	// Build WHERE condition with specific primary value
+	if db.wherePrimaryCondition.Value != nil && primaryKey != nil {
+		db.wherePrimaryCondition.Field = primaryKey
+		queryBuilder.WhereCondition(db.wherePrimaryCondition)
+	}
+
 	// Build JOIN clause
 	for _, joinItem := range db.joinStatement.Items {
 		queryBuilder.Join(joinItem.Join, joinItem.Table, joinItem.Condition)
-	}
-
-	// Build WHERE condition with specific primary value
-	if db.wherePrimaryCondition.Value != nil && primaryKey != nil {
-		log.Printf("%v", db.wherePrimaryCondition.Value)
-		queryBuilder.WhereCondition(db.wherePrimaryCondition)
 	}
 
 	// Build WHERE condition from a condition list
@@ -390,8 +381,8 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 		}
 	}
 
-	// Build WHERE condition from a specific model
-	db.whereFromModel(queryBuilder)
+	// Build WHERE condition from a specific model's data off table.
+	table.whereFromModel(queryBuilder)
 
 	// Build GROUP BY clause
 	if len(db.groupByStatement.Items) > 0 {

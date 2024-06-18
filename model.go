@@ -45,9 +45,15 @@ type Column struct {
 	Name     string
 	Primary  bool
 	Types    string
-	Ref      string
-	Relation string
+	Ref      string // Reference id to table
+	Relation string // Relation to table
+	IsZero   bool   // Keep Zero value of type
 	HasValue bool
+}
+
+// isNotData Does the column is column data of table
+func (c *Column) isNotData() bool {
+	return !c.HasValue || c.Relation != "" || c.Ref != ""
 }
 
 func NewTable() *Table {
@@ -126,22 +132,22 @@ func processModel(typ reflect.Type, value reflect.Value, tbl *Table) *Table {
 		}
 		col.Key = typeField.Name
 
-		// CAREFUL! IsZero interprets empty strings and int equal 0 as a zero value.
-		// To check only if the pointers have been initialized, you can check the kind of the field:
-		//if valueField.Kind() == reflect.Pointer {}
-
-		// IsZero panics if the value is invalid.
 		// Most functions and methods never return an invalid Value.
-		validValue := valueField.IsValid() && !valueField.IsZero()
+		validValue := valueField.IsValid()
+
+		// Prevent primary column get Zero value
+		validValueType := (isPrimaryColumn && valueField.CanInt() && !valueField.IsZero()) || !isPrimaryColumn
 
 		// Value of column
-		if validValue {
+		if validValue && validValueType {
 			tbl.Values[col.Name] = valueField.Interface()
 			tbl.HasData = true
 			col.HasValue = true
+			col.IsZero = valueField.IsZero()
 		} else {
 			tbl.Values[col.Name] = nil
 			col.HasValue = false
+			col.IsZero = true
 		}
 
 		// Process column types
@@ -179,13 +185,13 @@ func processModel(typ reflect.Type, value reflect.Value, tbl *Table) *Table {
 			}
 		}
 
-		tbl.Columns = append(tbl.Columns, col)
-
 		// Column is a primary key
 		col.Primary = isPrimaryColumn
 		if col.Primary {
 			tbl.Primaries = append(tbl.Primaries, col)
 		}
+
+		tbl.Columns = append(tbl.Columns, col)
 	}
 
 	return tbl
@@ -261,26 +267,4 @@ func toSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
-}
-
-// CanColumnBeAddOrUpdate check can the column be used for adding/updating SQL statement
-func (t *Table) CanColumnBeAddOrUpdate(column Column) bool {
-	// Skip all column have value nil
-	if !column.HasValue {
-		return false
-	}
-
-	value := t.Values[column.Name]
-
-	// Skip primary column type int without value.
-	if column.Primary && (reflect.TypeOf(value).String() == "int" && value == 0) {
-		return false
-	}
-
-	// Skip relation columns.
-	if column.Relation != "" {
-		return false
-	}
-
-	return true
 }

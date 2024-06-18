@@ -545,22 +545,17 @@ func (db *DBModel) RemoveFetch() fluentsql.Fetch {
 	return _fetchStatement
 }
 
-// whereFromModel Append where from a specific model
-func (db *DBModel) whereFromModel(queryBuilder *fluentsql.QueryBuilder) {
-	// Build WHERE condition from a specific model
-	if db.model != nil {
-		// Create a table object from a model
-		tbl, err := ModelData(db.model)
-
-		if tbl.HasData && err == nil {
-			for _, column := range tbl.Columns {
-				if !column.HasValue {
-					continue
-				}
-
-				// Append query conditions
-				queryBuilder.Where(column.Name, fluentsql.Eq, tbl.Values[column.Name])
+// whereFromModel Build and append WHERE clause from specific model's data off table.
+func (tbl *Table) whereFromModel(queryBuilder *fluentsql.QueryBuilder) {
+	if tbl.HasData {
+		for _, column := range tbl.Columns {
+			// Prevent some meta, relational, and default (Zero) value of column
+			if column.isNotData() || column.IsZero {
+				continue
 			}
+
+			// Append query conditions
+			queryBuilder.Where(column.Name, fluentsql.Eq, tbl.Values[column.Name])
 		}
 	}
 }
