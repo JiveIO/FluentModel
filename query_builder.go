@@ -286,9 +286,17 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 			err = dbInstance.Select(model, db.raw.sqlStr, db.raw.args...)
 		}
 
+		if err != nil {
+			panic(err)
+		}
+
 		// Query COUNT
 		sqlCount := fmt.Sprintf("SELECT COUNT(*) AS total FROM (%s) _result_out_", db.raw.sqlStr)
 		err = db.getRaw(sqlCount, db.raw.args, &total)
+
+		if err != nil {
+			panic(err)
+		}
 
 		// Reset fluent model builder
 		db.reset()
@@ -299,8 +307,7 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 	typ := reflect.TypeOf(model)
 
 	if !(typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Slice) {
-		err = errors.New("invalid data :: model not *Slice type")
-		return
+		panic(errors.New("invalid data :: model not *Slice type"))
 	}
 
 	var table *Table
@@ -324,8 +331,7 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 
 		typ := reflect.TypeOf(sliceIds)
 		if !(typ.Kind() == reflect.Slice) {
-			err = errors.New("invalid data :: params not Slice type")
-			return
+			panic(errors.New("invalid data :: params not *Slice type"))
 		}
 
 		db.wherePrimaryCondition = fluentsql.Condition{
@@ -411,11 +417,11 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 
 	// Data persistence
 	if err = db.query(queryBuilder, model); err != nil {
-		return
+		panic(err)
 	}
 
 	if err = db.count(queryBuilder, &total); err != nil {
-		return
+		panic(err)
 	}
 
 	// Reset fluent model builder

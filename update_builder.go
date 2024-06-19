@@ -3,7 +3,6 @@ package fluentmodel
 import (
 	"errors"
 	"github.com/jiveio/fluentsql"
-	"log"
 	"reflect"
 )
 
@@ -66,7 +65,7 @@ func (db *DBModel) Update(model any) (err error) {
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// Reset fluent model builder
@@ -152,9 +151,7 @@ func (db *DBModel) updateByStruct(model any) (err error) {
 	}
 
 	if !hasCondition {
-		err = errors.New("missing WHERE condition for updating operator")
-
-		return
+		panic(errors.New("missing WHERE condition for updating operator"))
 	}
 
 	// Build Updating fields from model's data

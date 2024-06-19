@@ -3,7 +3,6 @@ package fluentmodel
 import (
 	"errors"
 	"github.com/jiveio/fluentsql"
-	"log"
 	"reflect"
 )
 
@@ -44,7 +43,7 @@ func (db *DBModel) Delete(model any, args ...any) (err error) {
 		err = db.execRaw(db.raw.sqlStr, db.raw.args)
 
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 
 		// Reset fluent model builder
@@ -126,13 +125,7 @@ func (db *DBModel) Delete(model any, args ...any) (err error) {
 	}
 
 	if !hasCondition {
-		err = errors.New("missing WHERE condition for deleting operator")
-
-		return
-	}
-
-	if err != nil {
-		log.Fatal(err)
+		panic(errors.New("missing WHERE condition for deleting operator"))
 	}
 
 	err = db.delete(deleteBuilder)

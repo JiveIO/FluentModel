@@ -171,11 +171,14 @@ func (db *DBModel) createByStruct(model any) (err error) {
 
 	// Create a table object from a model
 	table, err = ModelData(model)
+	if err != nil {
+		panic(err)
+	}
 
 	// Get columns and values accordingly
 	for _, column := range table.Columns {
 		// Restriction from model declaration
-		if !column.isNotData() || column.Primary {
+		if column.isNotData() || column.Primary {
 			continue
 		}
 
@@ -210,6 +213,9 @@ func (db *DBModel) createByStruct(model any) (err error) {
 	}
 
 	id, err = db.add(insertBuilder, primaryColumn.Name)
+	if err != nil {
+		panic(err)
+	}
 
 	// Set ID back model
 	if primaryColumn.Key != "" {
