@@ -342,7 +342,7 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 	typeElement := reflect.TypeOf(model).Elem().Elem()  // First Elem() for pointer. Second Elem() for item
 	valueElement := reflect.ValueOf(typeElement).Elem() // Create empty value
 
-	table = processModel(typeElement, valueElement, table)
+	table = processModel(typeElement, valueElement, NewTable())
 
 	// Get a primary key
 	if len(table.Primaries) > 0 {
