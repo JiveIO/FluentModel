@@ -161,6 +161,10 @@ func (db *DBModel) Get(model any, getType GetOne) (err error) {
 			err = dbInstance.Get(model, db.raw.sqlStr, db.raw.args...)
 		}
 
+		if err != nil {
+			panic(err)
+		}
+
 		// Reset fluent model builder
 		db.reset()
 
@@ -231,18 +235,39 @@ func (db *DBModel) Get(model any, getType GetOne) (err error) {
 	// Build WHERE condition from a specific model's data off table.
 	table.whereFromModel(queryBuilder)
 
-	// Order by column
+	// Build JOIN clause
+	for _, joinItem := range db.joinStatement.Items {
+		queryBuilder.Join(joinItem.Join, joinItem.Table, joinItem.Condition)
+	}
+
+	// Build GROUP BY clause
+	if len(db.groupByStatement.Items) > 0 {
+		queryBuilder.GroupBy(db.groupByStatement.Items...)
+	}
+
+	// Build HAVING clause
+	for _, condition := range db.havingStatement.Conditions {
+		queryBuilder.Having(condition.Field, condition.Opt, condition.Value)
+	}
+
+	// Build LIMIT clause
+	if db.limitStatement.Limit > 0 {
+		queryBuilder.Limit(db.limitStatement.Limit, db.limitStatement.Offset)
+	}
+
+	// Build FETCH clause
+	if db.fetchStatement.Fetch > 0 {
+		queryBuilder.Fetch(db.fetchStatement.Offset, db.fetchStatement.Fetch)
+	}
+
+	// Build ORDER BY clause
 	orderByField := ""
 	if primaryKey != nil {
 		orderByField = primaryKey.(string)
 	} else {
 		orderByField = table.Columns[0].Name
 	}
-
-	// Order by direction
 	var orderByDir fluentsql.OrderByDir
-
-	// Get order
 	if getType == GetLast && orderByField != "" {
 		orderByDir = fluentsql.Desc
 	} else if getType == GetFirst && orderByField != "" {
@@ -258,12 +283,12 @@ func (db *DBModel) Get(model any, getType GetOne) (err error) {
 			orderByDir = fluentsql.Desc
 		}
 	}
-
-	// Build Order By clause
 	queryBuilder.OrderBy(orderByField, orderByDir)
 
-	// Data persistence
-	err = db.get(queryBuilder, model)
+	// Data processing
+	if err = db.get(queryBuilder, model); err != nil {
+		panic(err)
+	}
 
 	// Reset fluent model builder
 	db.reset()
@@ -317,7 +342,6 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 	typeElement := reflect.TypeOf(model).Elem().Elem()  // First Elem() for pointer. Second Elem() for item
 	valueElement := reflect.ValueOf(typeElement).Elem() // Create empty value
 
-	table = NewTable()
 	table = processModel(typeElement, valueElement, table)
 
 	// Get a primary key
@@ -363,11 +387,6 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 		queryBuilder.WhereCondition(db.wherePrimaryCondition)
 	}
 
-	// Build JOIN clause
-	for _, joinItem := range db.joinStatement.Items {
-		queryBuilder.Join(joinItem.Join, joinItem.Table, joinItem.Condition)
-	}
-
 	// Build WHERE condition from a condition list
 	for _, condition := range db.whereStatement.Conditions {
 		// Sub-conditions
@@ -389,6 +408,11 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 
 	// Build WHERE condition from a specific model's data off table.
 	table.whereFromModel(queryBuilder)
+
+	// Build JOIN clause
+	for _, joinItem := range db.joinStatement.Items {
+		queryBuilder.Join(joinItem.Join, joinItem.Table, joinItem.Condition)
+	}
 
 	// Build GROUP BY clause
 	if len(db.groupByStatement.Items) > 0 {
@@ -415,7 +439,7 @@ func (db *DBModel) Find(model any, params ...any) (total int, err error) {
 		queryBuilder.OrderBy(orderItem.Field, orderItem.Direction)
 	}
 
-	// Data persistence
+	// Data processing
 	if err = db.query(queryBuilder, model); err != nil {
 		panic(err)
 	}
